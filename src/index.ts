@@ -11,8 +11,25 @@
  * Learn more at https://developers.cloudflare.com/workers/
  */
 
+import { EmailMessage } from 'cloudflare:email';
+import { createMimeMessage } from 'mimetext/browser';
+
 export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello World!');
+	async email(message, env, ctx) {
+		const msg = createMimeMessage();
+		msg.setHeader('In-Reply-To', message.headers.get('Message-ID'));
+		msg.setSender({ name: 'sf frens', addr: 'zine-submission@sf-frens.org' });
+		msg.setRecipient(message.from);
+		msg.setSubject('Thanks for your submission!');
+		msg.addMessage({
+			contentType: 'text/plain',
+			data: "We've got it! You'll hear from us soon 😃\n\n- sf frens zine committee",
+		});
+
+		const replyMessage = new EmailMessage('<SENDER>@example.com', message.from, msg.asRaw());
+
+		// Apparently @cloudflare/workers-types isn't updated with this function yet...
+		await (message as any).reply(replyMessage);
+		await message.forward('internal@sf-frens.org');
 	},
 } satisfies ExportedHandler<Env>;
